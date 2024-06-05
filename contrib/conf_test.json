@@ -1,0 +1,32 @@
+{
+	"pipeline": [
+		{
+			"uri": "file:build/aylp_basler_fgsdk.so",
+			"params": {
+				"width": 80,
+				"height": 80
+			}
+		},
+		{
+			"uri": "anyloop:udp_sink",
+			"params": {
+				"ip": "127.0.0.1",
+				"port": 64730
+			}
+		},
+		{
+			"uri": "anyloop:delay",
+			"params": {
+				"s": 0,
+				"ns": 200000000
+			}
+		},
+		{
+			"uri": "anyloop:stop_after_count",
+			"params": {
+				"count": 1000
+			}
+		}
+	]
+}
+
