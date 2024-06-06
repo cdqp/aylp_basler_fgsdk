@@ -16,8 +16,6 @@ struct aylp_basler_fgsdk_data {
 	Fg_Struct *fg;
 	// dma_mem area
 	dma_mem *dma;
-	// buffer number
-	frameindex_t buf;
 	// port number for camera (see PORT_* in fg_define.h)
 	unsigned cam;
 	// framebuffer matrix (put into the state every round) and block

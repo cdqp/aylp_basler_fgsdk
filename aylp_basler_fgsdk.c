@@ -156,6 +156,12 @@ int aylp_basler_fgsdk_process(
 	int err;
 	struct aylp_basler_fgsdk_data *data = self->device_data;
 
+	// I'm switching back to standard mode for now since ACQ_BLOCK is very
+	// slow. Is this just cheaply upping the loop frequency at the cost of
+	// system latency? Unsure. The runtime for this function went from 18 ms
+	// to less than 0.5 ms, while only using two buffers ... so it seems
+	// that actually ACQ_BLOCK has overhead somewhere other than just the
+	// readout time for the camera.
 	/*
 	// unblock frame buffers
 	err = Fg_setStatusEx(data->fg, FG_UNBLOCK_ALL, 0, data->cam, data->dma);
