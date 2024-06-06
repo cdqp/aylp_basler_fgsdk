@@ -8,13 +8,13 @@
 
 #include "basler_fg.h"
 
+
 int aylp_basler_fgsdk_init(struct aylp_device *self)
 {
 	int err;
 	self->device_data = xcalloc(1, sizeof(struct aylp_basler_fgsdk_data));
 	struct aylp_basler_fgsdk_data *data = self->device_data;
-	// attach methods
-	self->process = &aylp_basler_fgsdk_process;
+	// attach methods (process() is later)
 	self->close = &aylp_basler_fgsdk_close;
 
 	// set default params
@@ -39,6 +39,9 @@ int aylp_basler_fgsdk_init(struct aylp_device *self)
 		} else if (!strcmp(key, "pitch")) {
 			data->pitch = json_object_get_double(val);
 			log_trace("pitch = %E", data->pitch);
+		} else if (!strcmp(key, "fast")) {
+			data->fast = json_object_get_boolean(val);
+			log_trace("fast = %d", data->fast);
 		} else {
 			log_warn("Unknown parameter \"%s\"", key);
 		}
@@ -115,8 +118,7 @@ int aylp_basler_fgsdk_init(struct aylp_device *self)
 		return -1;
 	}
 
-	//frameindex_t n_bufs = 1;	// TODO: parametrize?
-	frameindex_t n_bufs = 2;
+	frameindex_t n_bufs = 1;
 	// calculate buffer size (TODO: what if overflow?)
 	size_t buf_size = (size_t) data->width * data->height * n_bufs;
 	// allocate memory
@@ -128,16 +130,33 @@ int aylp_basler_fgsdk_init(struct aylp_device *self)
 		return -1;
 	}
 
-	// start acquisition (TODO: parametrize ACQ_ mode?)
+	int acq_mode;
+	if (data->fast) {
+		// gotta go fast
+		log_info("Fast mode enabled! Things might break.");
+		acq_mode = ACQ_STANDARD;
+		self->process = &aylp_basler_fgsdk_process_fast;
+	} else {
+		acq_mode = ACQ_BLOCK;
+		self->process = &aylp_basler_fgsdk_process;
+	}
+
+	// start acquisition
 	err = Fg_AcquireEx(
-		//data->fg, data->cam, GRAB_INFINITE, ACQ_BLOCK, data->dma
-		data->fg, data->cam, GRAB_INFINITE, ACQ_STANDARD, data->dma
+		data->fg, data->cam, GRAB_INFINITE, acq_mode, data->dma
 	);
 	if (err) {
 		log_error("Fg_AcquireEx() failed: %s",
 			Fg_getLastErrorDescription(data->fg)
 		);
 		return -1;
+	}
+
+	// if we are in fast mode we set up our fb now and just keep it forever
+	if (data->fast) {
+		data->fb.data = Fg_getImagePtrEx(
+			data->fg, 1, data->cam, data->dma
+		);
 	}
 
 	// set types and units
@@ -156,13 +175,6 @@ int aylp_basler_fgsdk_process(
 	int err;
 	struct aylp_basler_fgsdk_data *data = self->device_data;
 
-	// I'm switching back to standard mode for now since ACQ_BLOCK is very
-	// slow. Is this just cheaply upping the loop frequency at the cost of
-	// system latency? Unsure. The runtime for this function went from 18 ms
-	// to less than 0.5 ms, while only using two buffers ... so it seems
-	// that actually ACQ_BLOCK has overhead somewhere other than just the
-	// readout time for the camera.
-	/*
 	// unblock frame buffers
 	err = Fg_setStatusEx(data->fg, FG_UNBLOCK_ALL, 0, data->cam, data->dma);
 	if (UNLIKELY(err)) {
@@ -171,7 +183,6 @@ int aylp_basler_fgsdk_process(
 		);
 		return -1;
 	}
-	*/
 
 	frameindex_t buf = Fg_getImageEx(
 		data->fg, SEL_NEXT_IMAGE, 0,
@@ -187,7 +198,7 @@ int aylp_basler_fgsdk_process(
 	// take the pointer to the frame buffer for the newest image
 	// and write it into the gsl_block_uchar that comprises fb
 	data->fb.data = Fg_getImagePtrEx(data->fg, buf, data->cam, data->dma);
-	// update the gsl_block_uchar with the number of bytes transferred
+	// length check
 	size_t length = 0;
 	err = Fg_getParameterEx(
 		data->fg, FG_TRANSFER_LEN, &length, data->cam, data->dma, buf
@@ -207,7 +218,6 @@ int aylp_basler_fgsdk_process(
 	log_trace("Got image of length %llu bytes", length);
 
 	// zero-copy update of pipeline state
-	// TODO: fb is still not usable
 	state->matrix_uchar = &data->fb;
 	// housekeeping on the header
 	state->header.type = self->type_out;
@@ -218,6 +228,22 @@ int aylp_basler_fgsdk_process(
 	state->header.pitch.x = data->pitch;
 	return 0;
 }
+
+
+int aylp_basler_fgsdk_process_fast(
+	struct aylp_device *self, struct aylp_state *state
+){
+	struct aylp_basler_fgsdk_data *data = self->device_data;
+	// lol yeah so turns out the buffer pointer never changes so we just ...
+	state->matrix_uchar = &data->fb;
+	state->header.type = self->type_out;
+	state->header.units = self->units_out;
+	state->header.log_dim.y = data->height;
+	state->header.log_dim.x = data->width;
+	state->header.pitch.y = data->pitch;
+	state->header.pitch.x = data->pitch;
+	return 0;
+};
 
 
 int aylp_basler_fgsdk_close(struct aylp_device *self)

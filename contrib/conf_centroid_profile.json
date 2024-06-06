@@ -4,7 +4,8 @@
 			"uri": "file:build/aylp_basler_fgsdk.so",
 			"params": {
 				"width": 80,
-				"height": 80
+				"height": 80,
+				"fast": true
 			}
 		},
 		{
@@ -12,7 +13,7 @@
 			"params": {
 				"region_height": 8,
 				"region_width": 8,
-				"thread_count": 2
+				"thread_count": 1
 			}
 		}
 	]

@@ -12,17 +12,17 @@ struct aylp_basler_fgsdk_data {
 	size_t height;
 	double pitch;
 	size_t timeout;	// seconds
+	json_bool fast;	// whether or not to cheat God
 	// internal framegrabber struct
 	Fg_Struct *fg;
 	// dma_mem area
 	dma_mem *dma;
 	// port number for camera (see PORT_* in fg_define.h)
 	unsigned cam;
-	// framebuffer matrix (put into the state every round) and block
-	// these are NOT pointers because they're just containers for the
-	// pointer the kernel driver will spit at us
+	// framebuffer matrix (put into the state every round)
+	// this is NOT a pointer because it's just a container for the pointer
+	// the kernel driver will spit at us
 	gsl_matrix_uchar fb;
-	gsl_block_uchar fb_block;
 };
 
 // initialize fgsdk device
@@ -30,7 +30,14 @@ struct aylp_basler_fgsdk_data {
 int aylp_basler_fgsdk_init(struct aylp_device *self);
 
 // busy-wait for frame
-int aylp_basler_fgsdk_process(struct aylp_device *self, struct aylp_state *state);
+int aylp_basler_fgsdk_process(
+	struct aylp_device *self, struct aylp_state *state
+);
+
+// just keep the same image pointer
+int aylp_basler_fgsdk_process_fast(
+	struct aylp_device *self, struct aylp_state *state
+);
 
 // close fgsdk device when loop exits
 int aylp_basler_fgsdk_close(struct aylp_device *self);
