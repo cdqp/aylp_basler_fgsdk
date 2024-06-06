@@ -115,7 +115,8 @@ int aylp_basler_fgsdk_init(struct aylp_device *self)
 		return -1;
 	}
 
-	frameindex_t n_bufs = 1;	// TODO: parametrize?
+	//frameindex_t n_bufs = 1;	// TODO: parametrize?
+	frameindex_t n_bufs = 2;
 	// calculate buffer size (TODO: what if overflow?)
 	size_t buf_size = (size_t) data->width * data->height * n_bufs;
 	// allocate memory
@@ -129,7 +130,8 @@ int aylp_basler_fgsdk_init(struct aylp_device *self)
 
 	// start acquisition (TODO: parametrize ACQ_ mode?)
 	err = Fg_AcquireEx(
-		data->fg, data->cam, GRAB_INFINITE, ACQ_BLOCK, data->dma
+		//data->fg, data->cam, GRAB_INFINITE, ACQ_BLOCK, data->dma
+		data->fg, data->cam, GRAB_INFINITE, ACQ_STANDARD, data->dma
 	);
 	if (err) {
 		log_error("Fg_AcquireEx() failed: %s",
@@ -153,6 +155,17 @@ int aylp_basler_fgsdk_process(
 ){
 	int err;
 	struct aylp_basler_fgsdk_data *data = self->device_data;
+
+	/*
+	// unblock frame buffers
+	err = Fg_setStatusEx(data->fg, FG_UNBLOCK_ALL, 0, data->cam, data->dma);
+	if (UNLIKELY(err)) {
+		log_error("Fg_setStatusEx(FG_UNBLOCK_ALL) failed: %s",
+			Fg_getLastErrorDescription(data->fg)
+		);
+		return -1;
+	}
+	*/
 
 	frameindex_t buf = Fg_getImageEx(
 		data->fg, SEL_NEXT_IMAGE, 0,
@@ -186,15 +199,6 @@ int aylp_basler_fgsdk_process(
 		return -1;
 	}
 	log_trace("Got image of length %llu bytes", length);
-
-	// unblock frame buffer
-	err = Fg_setStatusEx(data->fg, FG_UNBLOCK, buf, data->cam, data->dma);
-	if (UNLIKELY(err)) {
-		log_error("Fg_setStatusEx(FG_UNBLOCK) failed: %s",
-			Fg_getLastErrorDescription(data->fg)
-		);
-		return -1;
-	}
 
 	// zero-copy update of pipeline state
 	// TODO: fb is still not usable

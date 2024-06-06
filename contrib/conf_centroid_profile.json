@@ -1,0 +1,20 @@
+{
+	"pipeline": [
+		{
+			"uri": "file:build/aylp_basler_fgsdk.so",
+			"params": {
+				"width": 80,
+				"height": 80
+			}
+		},
+		{
+			"uri": "anyloop:center_of_mass",
+			"params": {
+				"region_height": 8,
+				"region_width": 8,
+				"thread_count": 2
+			}
+		}
+	]
+}
+
