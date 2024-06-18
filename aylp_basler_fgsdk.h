@@ -7,7 +7,6 @@
 #include "basler_fg.h"
 
 struct aylp_basler_fgsdk_data {
-	// TODO: docstring
 	size_t width;
 	size_t height;
 	double pitch;
